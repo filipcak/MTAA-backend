@@ -7,19 +7,12 @@ from flask_sqlalchemy import SQLAlchemy
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 # postgresql://username:password@host:port/database
 DB_HOST = 'ec2-34-247-151-118.eu-west-1.compute.amazonaws.com'
-DB_USER = 'hjdfxbxlblkqcp'
-DB_PASSWORD = 'd04768e6412f38fe6d3daa08970df36e320d834c6c48befae1c93d91348f487b'
+DB_USER = os.environ["db_user"]
+DB_PASSWORD = os.environ["db_p"]
 DB_NAME = 'd1vm4vs3lu9a5u'
 DB_PORT = '5432'
-
-# DB_HOST = 'app-d4835b9f-e235-4b21-bcc9-dfd9b2b8fb04-do-user-11023320-0.b.db.ondigitalocean.com'
-# DB_USER = 'doadmin'
-# DB_PASSWORD = 'axNiEMzfX4sFRjbe'
-# DB_NAME = 'mtaa'
-# DB_PORT = '25060'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = \
     'postgresql://{}:{}@{}:{}/{}'.format(DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME)
