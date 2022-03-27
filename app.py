@@ -413,3 +413,8 @@ def napln_pacient_historia():
     db.session.add(patient_history3)
     db.session.commit()
     return Response(status=200, mimetype='application/json')
+
+@app.route('/test')
+def test():
+    temp = "test"
+    return Response(json.dumps(temp), status=200, mimetype='application/json')
