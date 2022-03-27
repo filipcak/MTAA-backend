@@ -321,7 +321,7 @@ def patient_rc():
         return Response(status=200, mimetype='application/json')
 
 @app.route('/get_patients/{id_doctor}', methods=['GET'])
-def patient_data_get(id_doctor):
+def patient_get(id_doctor):
     if None in [id_doctor] or "" in [id_doctor]:
         return Response(status=404, mimetype='application/json')
 
