@@ -8,11 +8,11 @@ app = Flask(__name__)
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # postgresql://username:password@host:port/database
-DB_HOST = 'ec2-34-247-151-118.eu-west-1.compute.amazonaws.com'
 DB_USER = os.environ["db_user"]
 DB_PASSWORD = os.environ["db_p"]
-DB_NAME = 'd1vm4vs3lu9a5u'
-DB_PORT = '5432'
+DB_NAME = 'mtaa'
+DB_PORT = '25060'
+DB_HOST = 'app-d4835b9f-e235-4b21-bcc9-dfd9b2b8fb04-do-user-11023320-0.b.db.ondigitalocean.com'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = \
     'postgresql://{}:{}@{}:{}/{}'.format(DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME)
