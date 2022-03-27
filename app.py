@@ -257,31 +257,33 @@ def delete_patient_doctor():
     if None in [patient_id] or "" in [patient_id]:
         return Response(status=400, mimetype='application/json')
 
-    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==doctor_id and Doctor_Patient.patient_id==patient_id)
+    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==doctor_id and Doctor_Patient.patient_id==patient_id).first()
     if p_d is None:
         return Response(status=424, mimetype='application/json')
     db.session.delete(p_d)
     db.session.commit()
     return Response(status=200, mimetype='application/json')
 
-@app.route('/photo_patient/{id}', methods=['GET'])
+@app.route('/photo_patient/<id>', methods=['GET'])
 def photo_get(id):
     if None in [id] or "" in [id]:
         return Response(status=400, mimetype='application/json')
 
-    patient = db.session.query.with_entities(Patient.photo_file, Patient.photo_file).filter(Patient.id == id)
+    patient = db.session.query(Patient).filter(Patient.id == id).first()
+    print(patient)
     if patient.photo_type == None:
         return Response(status=424, mimetype='application/json')
     else:
         response = {"response": {"photo": patient.photo_file, "photo_type": patient.photo_type}}
         return Response(json.dumps(response), status=200, mimetype='application/json')
 
-@app.route('/detail_patient/{id}', methods=['GET'])
+@app.route('/detail_patient/<id>', methods=['GET'])
 def patient_data_get(id):
     if None in [id] or "" in [id]:
         return Response(status=424, mimetype='application/json')
 
-    patient = db.session.query.with_entities(Patient.name, Patient.surname, Patient.id_number, Patient.email).filter(Patient.id == id)
+    patient = db.session.query(Patient).filter(Patient.id == id).first()
+    print(patient)
     response = {"response": {"patient_name": patient.name, "patient_surname": patient.surname, "patient_rc": patient.id_number, "patient_mail": patient.email}}
     return Response(json.dumps(response), status=200, mimetype='application/json')
 
@@ -296,7 +298,7 @@ def assign_patient():
     if None in [id_doctor, id_patient] or "" in [id_patient, id_doctor]:
         return Response(status=400, mimetype='application/json')
 
-    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==id_doctor and Doctor_Patient.patient_id==id_patient)
+    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==id_doctor and Doctor_Patient.patient_id==id_patient).first()
     if p_d is not None:
         return Response(status=409, mimetype='application/json')
     p_d.doctor_id = id_doctor
@@ -314,18 +316,19 @@ def patient_rc():
     if None in [patient_id] or "" in [patient_id]:
         return Response(status=400, mimetype='application/json')
 
-    patient = db.session.query.with_entities(Patient.id_number).filter(Patient.id == patient_id)
+    patient = db.session.query(Patient).filter(Patient.id == patient_id).first()
     if patient.id_number is not None:
         return Response(status=204, mimetype='application/json')
     else:
         return Response(status=200, mimetype='application/json')
 
-@app.route('/get_patients/{id_doctor}', methods=['GET'])
+@app.route('/get_patients/<id_doctor>', methods=['GET'])
 def patient_get(id_doctor):
     if None in [id_doctor] or "" in [id_doctor]:
         return Response(status=404, mimetype='application/json')
 
-    patients = db.session.query(Doctor_Patient).join(Patient).filter(Doctor_Patient.doctor_id == id_doctor)
+    patients = db.session.query(Patient).join(Doctor_Patient).filter(Doctor_Patient.doctor_id == id_doctor).all()
+    print(patients)
     if patients is None:    # doktor nema pacientov
         return Response(status=404, mimetype='application/json')
     data = []
@@ -414,7 +417,7 @@ def napln_pacient_historia():
     db.session.commit()
     return Response(status=200, mimetype='application/json')
 
-@app.route('/test')
-def test():
+@app.route('/test/<id>')
+def test(id):
     temp = "test"
     return Response(json.dumps(temp), status=200, mimetype='application/json')
