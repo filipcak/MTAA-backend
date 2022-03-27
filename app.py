@@ -233,6 +233,115 @@ def calculate_sugar():
 
     return Response(status=400, mimetype='application/json')
 
+@app.route('/photo_update', methods=['PUT'])
+def update_photo():
+    try:
+        photo_update = request.json['photo_update']
+        id_patient_request = photo_update['patient_id']
+        photo_bytes = photo_update['photo']
+        photo_type = photo_update['photo_types']
+    except:
+        return Response(status=400, mimetype='application/json')
+    if None in [id_patient_request, photo_update] or "" in [photo_update, id_patient_request]:
+        return Response(status=400, mimetype='application/json')
+
+    patient = db.session.query(Patient).filter(Patient.id == id_patient_request).first()
+    if patient is None:
+        return Response(status=400, mimetype='application/json')
+    patient.photo_file = photo_bytes
+    patient.photo_type = photo_type
+    db.session.commit()
+    return Response(status=200, mimetype='application/json')
+
+@app.route('/remove', methods=['DELETE'])
+def delete_patient_doctor():
+    try:
+        args = request.args
+        patient_id = args.get('patient_id')
+        doctor_id = args.get('doctor_id')
+    except:
+        return Response(status=400, mimetype='application/json')
+    if None in [patient_id] or "" in [patient_id]:
+        return Response(status=400, mimetype='application/json')
+
+    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==doctor_id and Doctor_Patient.patient_id==patient_id)
+    if p_d is None:
+        return Response(status=424, mimetype='application/json')
+    db.session.delete(p_d)
+    db.session.commit()
+    return Response(status=200, mimetype='application/json')
+
+@app.route('/photo_patient/{id}', methods=['GET'])
+def photo_get(id):
+    if None in [id] or "" in [id]:
+        return Response(status=400, mimetype='application/json')
+
+    patient = db.session.query.with_entities(Patient.photo_file, Patient.photo_file).filter(Patient.id == id)
+    if patient.photo_type == None:
+        return Response(status=424, mimetype='application/json')
+    else:
+        response = {"response": {"photo": patient.photo_file, "photo_type": patient.photo_type}}
+        return Response(json.dumps(response), status=200, mimetype='application/json')
+
+@app.route('/detail_patient/{id}', methods=['GET'])
+def patient_data_get(id):
+    if None in [id] or "" in [id]:
+        return Response(status=424, mimetype='application/json')
+
+    patient = db.session.query.with_entities(Patient.name, Patient.surname, Patient.id_number, Patient.email).filter(Patient.id == id)
+    response = {"response": {"patient_name": patient.name, "patient_surname": patient.surname, "patient_rc": patient.id_number, "patient_mail": patient.email}}
+    return Response(json.dumps(response), status=200, mimetype='application/json')
+
+@app.route('/assign_patient', methods=['PUT'])
+def assign_patient():
+    try:
+        assign_info = request.json['assign_info']
+        id_doctor = assign_info['id_doctor']
+        id_patient = assign_info['id_patient']
+    except:
+        return Response(status=400, mimetype='application/json')
+    if None in [id_doctor, id_patient] or "" in [id_patient, id_doctor]:
+        return Response(status=400, mimetype='application/json')
+
+    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==id_doctor and Doctor_Patient.patient_id==id_patient)
+    if p_d is not None:
+        return Response(status=409, mimetype='application/json')
+    p_d.doctor_id = id_doctor
+    p_d.patient_id = id_patient
+    db.session.commit()
+    return Response(status=200, mimetype='application/json')
+
+@app.route('/patient_exist', methods=['GET'])
+def patient_rc():
+    try:
+        args = request.args
+        patient_id = args.get('id_number_patient')
+    except:
+        return Response(status=400, mimetype='application/json')
+    if None in [patient_id] or "" in [patient_id]:
+        return Response(status=400, mimetype='application/json')
+
+    patient = db.session.query.with_entities(Patient.id_number).filter(Patient.id == patient_id)
+    if patient.id_number is not None:
+        return Response(status=204, mimetype='application/json')
+    else:
+        return Response(status=200, mimetype='application/json')
+
+@app.route('/get_patients/{id_doctor}', methods=['GET'])
+def patient_data_get(id_doctor):
+    if None in [id_doctor] or "" in [id_doctor]:
+        return Response(status=404, mimetype='application/json')
+
+    patients = db.session.query(Doctor_Patient).join(Patient).filter(Doctor_Patient.doctor_id == id_doctor)
+    if patients is None:    # doktor nema pacientov
+        return Response(status=404, mimetype='application/json')
+    data = []
+    for patient in patients:
+        data.append({"id_patient": patient.id, "id_number": patient.id_number})
+    response = {"patients": data}
+    return Response(json.dumps(response), status=200, mimetype='application/json')
+
+
 @app.route('/napln_insulin')
 def napln_insulin():
     insulin1 = Insulin(sugar_from=0, sugar_to=3, recommended_insulin=0, info="Ihneď si dajte rýchle pôsobiace sa charidy v množstve od 20-40g")
@@ -311,25 +420,3 @@ def napln_pacient_historia():
     db.session.add(patient_history3)
     db.session.commit()
     return Response(status=200, mimetype='application/json')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def print_test():
-    print("hello world")
