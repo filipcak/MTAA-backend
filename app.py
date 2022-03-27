@@ -317,7 +317,7 @@ def patient_rc():
         return Response(status=400, mimetype='application/json')
 
     patient = db.session.query(Patient).filter(Patient.id == patient_id).first()
-    if patient.id_number is not None:
+    if patient.id_number is None:
         return Response(status=204, mimetype='application/json')
     else:
         return Response(status=200, mimetype='application/json')
