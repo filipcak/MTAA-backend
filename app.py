@@ -270,7 +270,6 @@ def photo_get(id):
         return Response(status=400, mimetype='application/json')
 
     patient = db.session.query(Patient).filter(Patient.id == id).first()
-    print(patient)
     if patient.photo_type == None:
         return Response(status=424, mimetype='application/json')
     else:
@@ -283,7 +282,6 @@ def patient_data_get(id):
         return Response(status=424, mimetype='application/json')
 
     patient = db.session.query(Patient).filter(Patient.id == id).first()
-    print(patient)
     response = {"response": {"patient_name": patient.name, "patient_surname": patient.surname, "patient_rc": patient.id_number, "patient_mail": patient.email}}
     return Response(json.dumps(response), status=200, mimetype='application/json')
 
@@ -316,8 +314,8 @@ def patient_rc():
     if None in [patient_id] or "" in [patient_id]:
         return Response(status=400, mimetype='application/json')
 
-    patient = db.session.query(Patient).filter(Patient.id == patient_id).first()
-    if patient.id_number is None:
+    patient = db.session.query(Patient).filter(Patient.id_number == patient_id).first()
+    if patient is None:
         return Response(status=204, mimetype='application/json')
     else:
         return Response(status=200, mimetype='application/json')
