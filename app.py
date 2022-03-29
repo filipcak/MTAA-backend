@@ -21,7 +21,7 @@ db = SQLAlchemy(app)
 
 from models import *
 
-def isAuthorisated(request, id):
+def isAuthorisated(request, id, doctor):
     try:
         auth = request.authorization
         username = auth.username
@@ -31,13 +31,18 @@ def isAuthorisated(request, id):
     if None in [username, password] or "" in [username, password]:
         return False
 
-    patient = db.session.query(Patient).filter(Patient.id == id, Patient.id_number == username,
+    if doctor == True:
+        doctor = db.session.query(Doctor).filter(Doctor.id == id, Doctor.id_number == username,
+                                                 Doctor.password == password).first()
+        if doctor is None:
+            return False
+        return True
+    else:
+        patient = db.session.query(Patient).filter(Patient.id == id, Patient.id_number == username,
                                                Patient.password == password).first()
-    doctor = db.session.query(Doctor).filter(Doctor.id == id, Doctor.id_number == username,
-                                             Doctor.password == password).first()
-    if patient is None and doctor is None:
-        return False
-    return True
+        if patient is None:
+            return False
+        return True
 
 
 
@@ -139,7 +144,7 @@ def check_status():
     if None in [patient_id, date_string] or "" in [patient_id, date_string]:
         return Response(status=400, mimetype='application/json')
 
-    if not isAuthorisated(request, patient_id):
+    if not isAuthorisated(request, patient_id, False):
         return Response(status=401, mimetype='application/json')
 
     date_time_obj = datetime.datetime.fromisoformat(date_string)
@@ -176,7 +181,7 @@ def get_hist_item():
     if None in [patient_id, date_full] or "" in [patient_id, date_full]:
         return Response(status=400, mimetype='application/json')
 
-    if not isAuthorisated(request, patient_id):
+    if not isAuthorisated(request, patient_id, False):
         return Response(status=401, mimetype='application/json')
 
     date_day = datetime.datetime.fromisoformat(date_full).date()
@@ -212,7 +217,7 @@ def change_hist_rec():
     if None in [hist_request, id_hist_request] or "" in [hist_request, id_hist_request]:
         return Response(status=400, mimetype='application/json')
 
-    if not isAuthorisated(request, patient_id):
+    if not isAuthorisated(request, patient_id, False):
         return Response(status=401, mimetype='application/json')
 
     history = db.session.query(History).filter(History.id == id_hist_request).first()
@@ -259,7 +264,7 @@ def data_patient():
     if None in [patient_id, doctor_id, date_full]:
         return Response(status=424, mimetype='application/json')
 
-    if not isAuthorisated(request, doctor_id):
+    if not isAuthorisated(request, doctor_id, True):
         return Response(status=401, mimetype='application/json')
 
     histories = db.session.query(History).order_by(History.id.desc()).limit(10)
@@ -286,7 +291,7 @@ def update_photo():
     if None in [id_patient_request, file] or "" in [id_patient_request]:
         return Response(status=400, mimetype='application/json')
 
-    if not isAuthorisated(request, id_patient_request):
+    if not isAuthorisated(request, id_patient_request, False):
         return Response(status=401, mimetype='application/json')
 
     type = file.mimetype
@@ -311,7 +316,7 @@ def delete_patient_doctor():
     if None in [patient_id] or "" in [patient_id]:
         return Response(status=400, mimetype='application/json')
 
-    if not isAuthorisated(request, doctor_id):
+    if not isAuthorisated(request, doctor_id, True):
         return Response(status=401, mimetype='application/json')
 
     p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==doctor_id).filter(Doctor_Patient.patient_id==patient_id).first()
@@ -328,7 +333,7 @@ def photo_get(id):
     if None in [id] or "" in [id]:
         return Response(status=400, mimetype='application/json')
 
-    if not isAuthorisated(request, doctor_id):
+    if not isAuthorisated(request, id, False):
         return Response(status=401, mimetype='application/json')
 
     patient = db.session.query(Patient).filter(Patient.id == id).first()
@@ -349,7 +354,7 @@ def patient_data_get():
     if None in [patient_id, doctor_id] or "" in [patient_id, doctor_id]:
         return Response(status=400, mimetype='application/json')
 
-    if not isAuthorisated(request, doctor_id):
+    if not isAuthorisated(request, doctor_id, True):
         return Response(status=401, mimetype='application/json')
 
     patient = db.session.query(Patient).filter(Patient.id == patient_id).first()
@@ -367,17 +372,17 @@ def assign_patient():
     if None in [id_doctor, id_patient] or "" in [id_patient, id_doctor]:
         return Response(status=400, mimetype='application/json')
 
-    if not isAuthorisated(request, doctor_id):
+    if not isAuthorisated(request, id_doctor, True):
         return Response(status=401, mimetype='application/json')
 
-    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==id_doctor).filter(Doctor_Patient.patient_id==id_patient).first()
+    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.patient_id==id_patient).first()
     if p_d is None:
         record = Doctor_Patient(patient_id=id_patient, doctor_id=id_doctor)
         db.session.add(record)
         db.session.commit()
         return Response(status=200, mimetype='application/json')
     else:
-        return Response(status=400, mimetype='application/json')
+        return Response(status=409, mimetype='application/json')
 
 @app.route('/patient_exist', methods=['GET'])
 def patient_rc():
@@ -400,7 +405,7 @@ def patient_get(id_doctor):
     if None in [id_doctor] or "" in [id_doctor]:
         return Response(status=400, mimetype='application/json')
 
-    if not isAuthorisated(request, doctor_id):
+    if not isAuthorisated(request, id_doctor, True):
         return Response(status=401, mimetype='application/json')
 
     patients = db.session.query(Patient).join(Doctor_Patient).filter(Doctor_Patient.doctor_id == id_doctor).all()
