@@ -14,6 +14,7 @@ class OwnSQLAlchemy(SQLAlchemy):
     ForeignKey: Callable
     relationship: Callable
     backref: Callable
+    LargeBinary: Callable
 
 # models
 class Doctor(db.Model):
@@ -34,8 +35,8 @@ class Patient(db.Model):
     id_number = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(50), nullable=False)
     email = db.Column(db.String(50))
-    photo_file = db.Column(db.String(50))
     photo_type = db.Column(db.String(50))
+    photo_file = db.Column(db.LargeBinary)
 
     children = db.relationship("Patient_History", back_populates="patient")
 

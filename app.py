@@ -1,7 +1,7 @@
 import json
 import datetime
 import os
-from flask import Flask, request, jsonify, make_response, Response
+from flask import Flask, request, jsonify, make_response, Response, send_file
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
@@ -31,9 +31,9 @@ def isAuthorisated(request, id):
     if None in [username, password] or "" in [username, password]:
         return False
 
-    patient = db.session.query(Patient).filter(Patient.id == id and Patient.id_number == username and
+    patient = db.session.query(Patient).filter(Patient.id == id, Patient.id_number == username,
                                                Patient.password == password).first()
-    doctor = db.session.query(Doctor).filter(Doctor.id == id and Doctor.id_number == username and
+    doctor = db.session.query(Doctor).filter(Doctor.id == id, Doctor.id_number == username,
                                              Doctor.password == password).first()
     if patient is None and doctor is None:
         return False
@@ -278,24 +278,27 @@ def data_patient():
 @app.route('/photo_update', methods=['PUT'])
 def update_photo():
     try:
-        photo_update = request.json['photo_update']
-        id_patient_request = photo_update['patient_id']
-        photo_bytes = photo_update['photo']
-        photo_type = photo_update['photo_types']
+        photo_update = request.form.to_dict(flat=False)
+        id_patient_request = photo_update['patient_id'][0]
+        file = request.files['image']
     except:
         return Response(status=400, mimetype='application/json')
-    if None in [id_patient_request, photo_update] or "" in [photo_update, id_patient_request]:
+    if None in [id_patient_request, file] or "" in [id_patient_request]:
         return Response(status=400, mimetype='application/json')
 
+    if not isAuthorisated(request, id_patient_request):
+        return Response(status=401, mimetype='application/json')
 
+    type = file.mimetype
     patient = db.session.query(Patient).filter(Patient.id == id_patient_request).first()
     if patient is None:
         return Response(status=400, mimetype='application/json')
-    patient.photo_file = photo_bytes
-    patient.photo_type = photo_type
-    db.session.commit()
-    return Response(status=200, mimetype='application/json')
-
+    else:
+        patient.photo_file = file.read()
+        patient.photo_type = type
+        db.session.commit()
+        return Response(status=200, mimetype='application/json')
+    return Response(status=400, mimetype='application/json')
 
 @app.route('/remove', methods=['DELETE'])
 def delete_patient_doctor():
@@ -308,31 +311,48 @@ def delete_patient_doctor():
     if None in [patient_id] or "" in [patient_id]:
         return Response(status=400, mimetype='application/json')
 
-    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==doctor_id and Doctor_Patient.patient_id==patient_id).first()
+    if not isAuthorisated(request, doctor_id):
+        return Response(status=401, mimetype='application/json')
+
+    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==doctor_id).filter(Doctor_Patient.patient_id==patient_id).first()
     if p_d is None:
-        return Response(status=424, mimetype='application/json')
-    db.session.delete(p_d)
-    db.session.commit()
-    return Response(status=200, mimetype='application/json')
+        return Response(status=400, mimetype='application/json')
+    else:
+        db.session.delete(p_d)
+        db.session.commit()
+        return Response(status=200, mimetype='application/json')
+    return Response(status=400, mimetype='application/json')
 
 @app.route('/photo_patient/<id>', methods=['GET'])
 def photo_get(id):
     if None in [id] or "" in [id]:
         return Response(status=400, mimetype='application/json')
 
+    if not isAuthorisated(request, doctor_id):
+        return Response(status=401, mimetype='application/json')
+
     patient = db.session.query(Patient).filter(Patient.id == id).first()
     if patient.photo_type == None:
-        return Response(status=424, mimetype='application/json')
+        return Response(status=400, mimetype='application/json')
     else:
-        response = {"response": {"photo": patient.photo_file, "photo_type": patient.photo_type}}
-        return Response(json.dumps(response), status=200, mimetype='application/json')
+        response = {"response": {"photo_type": patient.photo_type}}
+        return Response(patient.photo_file, mimetype=patient.photo_type, status=200)
 
-@app.route('/detail_patient/<id>', methods=['GET'])
-def patient_data_get(id):
-    if None in [id] or "" in [id]:
-        return Response(status=424, mimetype='application/json')
+@app.route('/detail_patient', methods=['GET'])
+def patient_data_get():
+    try:
+        args = request.args
+        patient_id = args.get('patient_id')
+        doctor_id = args.get('doctor_id')
+    except:
+        return Response(status=400, mimetype='application/json')
+    if None in [patient_id, doctor_id] or "" in [patient_id, doctor_id]:
+        return Response(status=400, mimetype='application/json')
 
-    patient = db.session.query(Patient).filter(Patient.id == id).first()
+    if not isAuthorisated(request, doctor_id):
+        return Response(status=401, mimetype='application/json')
+
+    patient = db.session.query(Patient).filter(Patient.id == patient_id).first()
     response = {"response": {"patient_name": patient.name, "patient_surname": patient.surname, "patient_rc": patient.id_number, "patient_mail": patient.email}}
     return Response(json.dumps(response), status=200, mimetype='application/json')
 
@@ -347,13 +367,17 @@ def assign_patient():
     if None in [id_doctor, id_patient] or "" in [id_patient, id_doctor]:
         return Response(status=400, mimetype='application/json')
 
-    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==id_doctor and Doctor_Patient.patient_id==id_patient).first()
-    if p_d is not None:
-        return Response(status=409, mimetype='application/json')
-    p_d.doctor_id = id_doctor
-    p_d.patient_id = id_patient
-    db.session.commit()
-    return Response(status=200, mimetype='application/json')
+    if not isAuthorisated(request, doctor_id):
+        return Response(status=401, mimetype='application/json')
+
+    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.doctor_id==id_doctor).filter(Doctor_Patient.patient_id==id_patient).first()
+    if p_d is None:
+        record = Doctor_Patient(patient_id=id_patient, doctor_id=id_doctor)
+        db.session.add(record)
+        db.session.commit()
+        return Response(status=200, mimetype='application/json')
+    else:
+        return Response(status=400, mimetype='application/json')
 
 @app.route('/patient_exist', methods=['GET'])
 def patient_rc():
@@ -374,10 +398,12 @@ def patient_rc():
 @app.route('/get_patients/<id_doctor>', methods=['GET'])
 def patient_get(id_doctor):
     if None in [id_doctor] or "" in [id_doctor]:
-        return Response(status=404, mimetype='application/json')
+        return Response(status=400, mimetype='application/json')
+
+    if not isAuthorisated(request, doctor_id):
+        return Response(status=401, mimetype='application/json')
 
     patients = db.session.query(Patient).join(Doctor_Patient).filter(Doctor_Patient.doctor_id == id_doctor).all()
-    print(patients)
     if patients is None:    # doktor nema pacientov
         return Response(status=404, mimetype='application/json')
     data = []
@@ -385,7 +411,6 @@ def patient_get(id_doctor):
         data.append({"id_patient": patient.id, "id_number": patient.id_number})
     response = {"patients": data}
     return Response(json.dumps(response), status=200, mimetype='application/json')
-
 
 
 @app.route('/napln_insulin')
