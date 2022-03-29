@@ -21,14 +21,24 @@ db = SQLAlchemy(app)
 
 from models import *
 
+def isAuthorisated(request, id):
+    try:
+        auth = request.authorization
+        username = auth.username
+        password = auth.password
+    except:
+        return False
+    if None in [username, password] or "" in [username, password]:
+        return False
 
-@app.route('/test/<meno>/<priezvisko>/<id_num>')
-def v1_health(meno, priezvisko, id_num):
-    doctor = Doctor(name=meno, surname=priezvisko, id_number=id_num, password="1234")
-    db.session.add(doctor)
-    db.session.commit()
+    patient = db.session.query(Patient).filter(Patient.id == id and Patient.id_number == username and
+                                               Patient.password == password).first()
+    doctor = db.session.query(Doctor).filter(Doctor.id == id and Doctor.id_number == username and
+                                             Doctor.password == password).first()
+    if patient is None and doctor is None:
+        return False
+    return True
 
-    return "<p>Zapisany pouzivatel</p>"
 
 
 @app.route('/reg_patient', methods=['POST'])
@@ -45,8 +55,9 @@ def registrate_patient():
     if None in [patient_data, id_num, password] or "" in [patient_data, id_num, password]:
         return Response(status=400, mimetype='application/json')
 
-
+    # zistenie ci sa rodne cislo uz nenachadza v databaze
     count = db.session.query(Patient).filter(Patient.id_number == id_num).count()
+    count = count + db.session.query(Doctor).filter(Doctor.id_number == id_num).count()
 
     if count > 0:
         return Response(status=409, mimetype='application/json')
@@ -120,7 +131,7 @@ def login_doctor():
 def check_status():
     try:
         args = request.args
-        patient_id = args.get('patient_id')
+        patient_id = int(args.get('patient_id'))
         date_string = args.get('date')
         datetime.datetime.fromisoformat(date_string)
     except:
@@ -128,6 +139,8 @@ def check_status():
     if None in [patient_id, date_string] or "" in [patient_id, date_string]:
         return Response(status=400, mimetype='application/json')
 
+    if not isAuthorisated(request, patient_id):
+        return Response(status=401, mimetype='application/json')
 
     date_time_obj = datetime.datetime.fromisoformat(date_string)
     date_day = date_time_obj.date()
@@ -155,13 +168,16 @@ def check_status():
 def get_hist_item():
     try:
         hist_request = request.json['hist_request']
-        patient_id = hist_request['patient_id']
+        patient_id = int(hist_request['patient_id'])
         date_full = hist_request['date']
         datetime.datetime.fromisoformat(date_full)
     except:
         return Response(status=400, mimetype='application/json')
     if None in [patient_id, date_full] or "" in [patient_id, date_full]:
         return Response(status=400, mimetype='application/json')
+
+    if not isAuthorisated(request, patient_id):
+        return Response(status=401, mimetype='application/json')
 
     date_day = datetime.datetime.fromisoformat(date_full).date()
     record = db.session.query(History).join(Patient_History).filter(Patient.id == patient_id,
@@ -186,14 +202,18 @@ def get_hist_item():
 def change_hist_rec():
     try:
         hist_request = request.json['hist_record']
-        id_hist_request = hist_request['id_hist_request']
-        morning = hist_request['morning']
-        lunch = hist_request['lunch']
-        evening = hist_request['evening']
+        patient_id = int(hist_request['patient_id'])
+        id_hist_request = int(hist_request['id_hist_request'])
+        morning = float(hist_request['morning'])
+        lunch = float(hist_request['lunch'])
+        evening = float(hist_request['evening'])
     except:
         return Response(status=400, mimetype='application/json')
     if None in [hist_request, id_hist_request] or "" in [hist_request, id_hist_request]:
         return Response(status=400, mimetype='application/json')
+
+    if not isAuthorisated(request, patient_id):
+        return Response(status=401, mimetype='application/json')
 
     history = db.session.query(History).filter(History.id == id_hist_request).first()
     if history is None:
@@ -226,6 +246,35 @@ def calculate_sugar():
 
     return Response(status=400, mimetype='application/json')
 
+@app.route('/data_patient')
+def data_patient():
+    try:
+        args = request.args
+        doctor_id = int(args.get('doctor_id'))
+        patient_id = int(args.get('patient_id'))
+        date_full = args.get('date')
+        datetime.datetime.fromisoformat(date_full)
+    except:
+        return Response(status=424, mimetype='application/json')
+    if None in [patient_id, doctor_id, date_full]:
+        return Response(status=424, mimetype='application/json')
+
+    if not isAuthorisated(request, doctor_id):
+        return Response(status=401, mimetype='application/json')
+
+    histories = db.session.query(History).order_by(History.id.desc()).limit(10)
+
+    if histories is None:
+        json_response = {"response": []}
+    else:
+        response = []
+        for history in histories:
+            response.append({"date": history.date, "morning": history.morning, "lunch": history.lunch, "evening": history.evening})
+        json_response = {"response": response}
+
+    return Response(json.dumps(json_response), status=200, mimetype='application/json')
+
+
 @app.route('/photo_update', methods=['PUT'])
 def update_photo():
     try:
@@ -238,6 +287,7 @@ def update_photo():
     if None in [id_patient_request, photo_update] or "" in [photo_update, id_patient_request]:
         return Response(status=400, mimetype='application/json')
 
+
     patient = db.session.query(Patient).filter(Patient.id == id_patient_request).first()
     if patient is None:
         return Response(status=400, mimetype='application/json')
@@ -245,6 +295,7 @@ def update_photo():
     patient.photo_type = photo_type
     db.session.commit()
     return Response(status=200, mimetype='application/json')
+
 
 @app.route('/remove', methods=['DELETE'])
 def delete_patient_doctor():
@@ -334,6 +385,7 @@ def patient_get(id_doctor):
         data.append({"id_patient": patient.id, "id_number": patient.id_number})
     response = {"patients": data}
     return Response(json.dumps(response), status=200, mimetype='application/json')
+
 
 
 @app.route('/napln_insulin')
