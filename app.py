@@ -416,7 +416,8 @@ def patient_rc():
     if patient is None:
         return Response(status=204, mimetype='application/json')
     else:
-        return Response(status=200, mimetype='application/json')
+        response = {"id_patient": patient.id}
+        return Response(json.dumps(response), status=200, mimetype='application/json')
 
 
 @app.route('/get_patients/<id_doctor>', methods=['GET'])
