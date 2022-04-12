@@ -213,9 +213,21 @@ def change_hist_rec():
         hist_request = request.json['hist_record']
         patient_id = int(hist_request['patient_id'])
         id_hist_request = int(hist_request['id_hist_request'])
-        morning = float(hist_request['morning'])
-        lunch = float(hist_request['lunch'])
-        evening = float(hist_request['evening'])
+        if hist_request['morning'] != None:
+            morning = float(hist_request['morning'])
+        else:
+            morning = None
+
+        if hist_request['lunch'] != None:
+            lunch = float(hist_request['lunch'])
+        else:
+            lunch = None
+
+        if hist_request['evening'] != None:
+            evening = float(hist_request['evening'])
+        else:
+            evening = None
+
     except:
         return Response(status=400, mimetype='application/json')
     if None in [hist_request, id_hist_request] or "" in [hist_request, id_hist_request]:
@@ -228,7 +240,7 @@ def change_hist_rec():
     if history is None:
         return Response(status=400, mimetype='application/json')
 
-    if 0 <= morning <= 30 and 0 <= lunch <= 30 and 0 <= evening <= 30:
+    if (morning is None or 0 <= morning <= 30) and (lunch is None or 0 <= lunch <= 30) and (evening is None or 0 <= evening <= 30):
         history.morning = morning
         history.lunch = lunch
         history.evening = evening
