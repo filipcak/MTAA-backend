@@ -420,12 +420,15 @@ def assign_patient(ws):
     while True:
         try:
             data = ws.receive()
+            print(data)
             assign_info = data.json['assign_info']
+            print(assign_info)
             id_doctor = assign_info['id_doctor']
             id_patient = assign_info['id_patient']
             u = assign_info['u']
             p = assign_info['p']
-
+            print(u)
+            print(p)
         except:
             ws.send("400")
             break
