@@ -3,8 +3,10 @@ import datetime
 import os
 from flask import Flask, request, Response
 from flask_sqlalchemy import SQLAlchemy
+from flask_sock import Sock
 
 app = Flask(__name__)
+sock = Sock(app)
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # postgresql://username:password@host:port/database
@@ -414,22 +416,31 @@ def assign_patient():
         return Response(status=409, mimetype='application/json')
 
 
-@app.route('/patient_exist', methods=['GET'])
-def patient_rc():
-    try:
-        args = request.args
-        patient_id = args.get('id_number_patient')
-    except:
-        return Response(status=400, mimetype='application/json')
-    if None in [patient_id] or "" in [patient_id]:
-        return Response(status=400, mimetype='application/json')
+@sock.route('/patient_exist')
+def patient_rc(ws):
+    print(f'User: {request.args.get("id_number_patient")}')
+    while True:
+        #data = ws.receive()
+        #print(data)
+        #ws.send(data)
+        try:
+            args = request.args
+            patient_id = args.get('id_number_patient')
+        except:
+            ws.send("404")
+            break
+        if None in [patient_id] or "" in [patient_id]:
+            ws.send("404")
+            break
 
-    patient = db.session.query(Patient).filter(Patient.id_number == patient_id).first()
-    if patient is None:
-        return Response(status=204, mimetype='application/json')
-    else:
-        response = {"id_patient": patient.id}
-        return Response(json.dumps(response), status=200, mimetype='application/json')
+        patient = db.session.query(Patient).filter(Patient.id_number == patient_id).first()
+        if patient is None:
+            ws.send("204")
+            break
+        else:
+            response = {"id_patient": patient.id}
+            ws.send(json.dumps(response))
+            break
 
 
 @app.route('/get_patients/<id_doctor>', methods=['GET'])
