@@ -392,28 +392,35 @@ def patient_data_get():
     return Response(json.dumps(response), status=200, mimetype='application/json')
 
 
-@app.route('/assign_patient', methods=['PUT'])
-def assign_patient():
-    try:
-        assign_info = request.json['assign_info']
-        id_doctor = assign_info['id_doctor']
-        id_patient = assign_info['id_patient']
-    except:
-        return Response(status=400, mimetype='application/json')
-    if None in [id_doctor, id_patient] or "" in [id_patient, id_doctor]:
-        return Response(status=400, mimetype='application/json')
+@sock.route('/assign_patient')
+def assign_patient(ws):
+    while True:
+        try:
+            data = ws.receive()
+            assign_info = data.json['assign_info']
+            id_doctor = assign_info['id_doctor']
+            id_patient = assign_info['id_patient']
+        except:
+            ws.send("400")
+            break
+        if None in [id_doctor, id_patient] or "" in [id_patient, id_doctor]:
+            ws.send("400")
+            break
 
-    if not isAuthorisated(request, id_doctor, True):
-        return Response(status=401, mimetype='application/json')
+        if not isAuthorisated(request, id_doctor, True):
+            ws.send("401")
+            break
 
-    p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.patient_id == id_patient).first()
-    if p_d is None:
-        record = Doctor_Patient(patient_id=id_patient, doctor_id=id_doctor)
-        db.session.add(record)
-        db.session.commit()
-        return Response(status=200, mimetype='application/json')
-    else:
-        return Response(status=409, mimetype='application/json')
+        p_d = db.session.query(Doctor_Patient).filter(Doctor_Patient.patient_id == id_patient).first()
+        if p_d is None:
+            record = Doctor_Patient(patient_id=id_patient, doctor_id=id_doctor)
+            db.session.add(record)
+            db.session.commit()
+            ws.send("200")
+            break
+        else:
+            ws.send("409")
+            break
 
 
 @sock.route('/patient_exist')
