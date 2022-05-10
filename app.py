@@ -47,6 +47,29 @@ def isAuthorisated(request, id, doctor):
             return False
         return True
 
+def isAuthorisatedWS(user, pwd, id, doctor):
+    try:
+        username = user
+        password = pwd
+    except:
+        return False
+    if None in [username, password] or "" in [username, password]:
+        return False
+
+    if doctor == True:
+        doctor = db.session.query(Doctor).filter(Doctor.id_number == username,
+                                                 Doctor.password == password).first()
+        if doctor is None:
+            return False
+        return True
+    else:
+        patient = db.session.query(Patient).filter(Patient.id == id, Patient.id_number == username,
+                                                   Patient.password == password).first()
+        if patient is None:
+            return False
+        return True
+
+
 
 @app.route('/reg_patient', methods=['POST'])
 def registrate_patient():
@@ -400,6 +423,9 @@ def assign_patient(ws):
             assign_info = data.json['assign_info']
             id_doctor = assign_info['id_doctor']
             id_patient = assign_info['id_patient']
+            u = assign_info['u']
+            p = assign_info['p']
+
         except:
             ws.send("400")
             break
@@ -407,7 +433,7 @@ def assign_patient(ws):
             ws.send("400")
             break
 
-        if not isAuthorisated(request, id_doctor, True):
+        if not isAuthorisatedWS(u, p, id_doctor, True):
             ws.send("401")
             break
 
